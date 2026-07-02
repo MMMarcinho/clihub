@@ -20,4 +20,55 @@ clihub run <workflow>
 
 `clihub` 不只是顺序执行命令，也应该支持捕获上一步 CLI 的输出，经过解析、提取或整理后传给下一步。
 
-初版产品规格见 [SPEC.md](./SPEC.md)。
+初版产品规格见 [SPEC.md](./SPEC.md)，分阶段落地计划见 [ROADMAP.md](./ROADMAP.md)。
+
+## 当前实现状态：Phase 0
+
+当前代码实现了 ROADMAP.md 中的 Phase 0：顺序执行 workflow 的最小闭环（`{{inputs.x}}` 模板渲染、必填输入校验、`requires.tools` 检查、`stdout`/`stderr`/`exitCode` 记录、失败即停）。尚未实现 `capture`/`select`/`assign` 数据流、`doctor`、`explain`、`--json` 输出等（见 ROADMAP.md 后续阶段）。
+
+## 安装与构建
+
+```bash
+npm install
+npm run build
+```
+
+## 使用
+
+```bash
+# 在项目根目录初始化 .clihub/workflows
+node dist/cli.js init
+
+# 列出可用 workflow
+node dist/cli.js list
+
+# 查看某个 workflow 的输入和步骤
+node dist/cli.js show <workflow>
+
+# 运行 workflow，可重复传入 --input
+node dist/cli.js run <workflow> --input key=value
+```
+
+workflow 文件示例（`.clihub/workflows/greet.yaml`）：
+
+```yaml
+name: greet
+description: Print a greeting.
+
+inputs:
+  name:
+    description: Who to greet.
+    required: true
+
+requires:
+  tools:
+    - echo
+
+steps:
+  - id: hello
+    run: echo "Hello, {{inputs.name}}!"
+```
+
+```bash
+node dist/cli.js run greet --input name=World
+```
