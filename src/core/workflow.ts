@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
-import { Workflow, WorkflowInput, WorkflowStep } from "./types";
+import { CaptureFormat, CaptureSpec, Workflow, WorkflowInput, WorkflowStep } from "./types";
 
 export const WORKFLOWS_DIR = path.join(".clihub", "workflows");
 
@@ -45,6 +45,49 @@ function parseInputs(raw: unknown, file: string): Record<string, WorkflowInput> 
   return inputs;
 }
 
+const CAPTURE_FORMATS: CaptureFormat[] = ["text", "json", "lines"];
+
+function parseCapture(raw: unknown, file: string, index: number): CaptureSpec | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw === "string") {
+    return { as: raw, format: "text" };
+  }
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error(`workflow ${file}: steps[${index}].capture must be a string or a map`);
+  }
+  const obj = raw as Record<string, unknown>;
+  const as = assertString(obj.as, `steps[${index}].capture.as`, file);
+  const format = obj.format ?? "text";
+  if (!CAPTURE_FORMATS.includes(format as CaptureFormat)) {
+    throw new Error(
+      `workflow ${file}: steps[${index}].capture.format must be one of ${CAPTURE_FORMATS.join(", ")}`
+    );
+  }
+  let select: Record<string, string> | undefined;
+  if (obj.select !== undefined) {
+    if (typeof obj.select !== "object" || obj.select === null || Array.isArray(obj.select)) {
+      throw new Error(`workflow ${file}: steps[${index}].capture.select must be a map`);
+    }
+    select = {};
+    for (const [key, value] of Object.entries(obj.select as Record<string, unknown>)) {
+      select[key] = assertString(value, `steps[${index}].capture.select.${key}`, file);
+    }
+  }
+  return { as, format: format as CaptureFormat, select };
+}
+
+function parseAssign(raw: unknown, file: string, index: number): Record<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error(`workflow ${file}: steps[${index}].assign must be a map`);
+  }
+  const assign: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    assign[key] = assertString(value, `steps[${index}].assign.${key}`, file);
+  }
+  return assign;
+}
+
 function parseSteps(raw: unknown, file: string): WorkflowStep[] {
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error(`workflow ${file}: "steps" must be a non-empty list`);
@@ -57,8 +100,18 @@ function parseSteps(raw: unknown, file: string): WorkflowStep[] {
       throw new Error(`workflow ${file}: duplicate step id "${id}"`);
     }
     seenIds.add(id);
-    const run = assertString(step.run, `steps[${index}].run`, file);
-    const result: WorkflowStep = { id, run };
+
+    const run = typeof step.run === "string" && step.run.trim() !== "" ? step.run : undefined;
+    const capture = parseCapture(step.capture, file, index);
+    const assign = parseAssign(step.assign, file, index);
+    if (!run && !assign) {
+      throw new Error(`workflow ${file}: steps[${index}] ("${id}") must have "run" or "assign"`);
+    }
+
+    const result: WorkflowStep = { id };
+    if (run) result.run = run;
+    if (capture) result.capture = capture;
+    if (assign) result.assign = assign;
     if (typeof step.cwd === "string") result.cwd = step.cwd;
     if (step.env && typeof step.env === "object") {
       result.env = step.env as Record<string, string>;

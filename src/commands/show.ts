@@ -25,6 +25,10 @@ export function showCommand(name: string): void {
 
   console.log(`\nsteps:`);
   for (const step of wf.steps) {
-    console.log(`  - ${step.id}: ${step.run}`);
+    const parts: string[] = [];
+    if (step.run) parts.push(step.run);
+    if (step.capture) parts.push(`[capture -> ${step.capture.as} (${step.capture.format})]`);
+    if (step.assign) parts.push(`[assign: ${Object.keys(step.assign).join(", ")}]`);
+    console.log(`  - ${step.id}: ${parts.join(" ")}`);
   }
 }

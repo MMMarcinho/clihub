@@ -22,9 +22,15 @@ clihub run <workflow>
 
 初版产品规格见 [SPEC.md](./SPEC.md)，分阶段落地计划见 [ROADMAP.md](./ROADMAP.md)。
 
-## 当前实现状态：Phase 0
+## 当前实现状态：Phase 0 + Phase 1
 
-当前代码实现了 ROADMAP.md 中的 Phase 0：顺序执行 workflow 的最小闭环（`{{inputs.x}}` 模板渲染、必填输入校验、`requires.tools` 检查、`stdout`/`stderr`/`exitCode` 记录、失败即停）。尚未实现 `capture`/`select`/`assign` 数据流、`doctor`、`explain`、`--json` 输出等（见 ROADMAP.md 后续阶段）。
+当前代码实现了 ROADMAP.md 中的 Phase 0 和 Phase 1：
+
+- 顺序执行 workflow 的最小闭环（模板渲染、必填输入校验、`requires.tools` 检查、`stdout`/`stderr`/`exitCode` 记录、失败即停）。
+- 显式数据流：`capture`（`text`/`json`/`lines` + `select` 字段提取）、`assign` 中间变量、`{{steps.*}}`/`{{captures.*}}`/`{{vars.*}}` 模板引用。
+- `clihub doctor <workflow>`：检查所需工具和必填输入。
+
+尚未实现 `explain`、`--json` 输出、`permissions` 声明、用户级 hub（见 ROADMAP.md Phase 2）。
 
 ## 安装与构建
 
@@ -47,6 +53,9 @@ node dist/cli.js show <workflow>
 
 # 运行 workflow，可重复传入 --input
 node dist/cli.js run <workflow> --input key=value
+
+# 运行前体检：检查工具和必填输入
+node dist/cli.js doctor <workflow>
 ```
 
 workflow 文件示例（`.clihub/workflows/greet.yaml`）：
@@ -71,4 +80,43 @@ steps:
 
 ```bash
 node dist/cli.js run greet --input name=World
+```
+
+带数据流的 workflow 示例（`capture` 把上一步的输出解析、提取，喂给下一步）：
+
+```yaml
+name: create-pr-summary
+description: Collect issue and commits, then assemble a PR body.
+
+steps:
+  - id: issue
+    run: echo '{"title":"Fix bug","body":"desc"}'
+    capture:
+      as: issue
+      format: json
+      select:
+        title: title
+        body: body
+
+  - id: commits
+    run: printf 'commit1\ncommit2\n'
+    capture:
+      as: commits
+      format: lines
+
+  - id: pr-body
+    assign:
+      prBody: |
+        ## Issue
+        {{captures.issue.title}}
+
+        ## Changes
+        {{captures.commits}}
+
+  - id: summary
+    run: echo {{vars.prBody}}
+```
+
+```bash
+node dist/cli.js run create-pr-summary
 ```

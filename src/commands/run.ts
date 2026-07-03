@@ -36,6 +36,10 @@ export function runCommand(name: string, rawInputs: string[]): void {
       console.log(`\n[${id}] $ ${command}`);
     },
     onStepEnd: (result) => {
+      if (!result.command) {
+        console.log(`\n[${result.id}] (assign only, no command)`);
+        return;
+      }
       if (result.stdout) process.stdout.write(result.stdout);
       if (result.stderr) process.stderr.write(result.stderr);
       console.log(`[${result.id}] exit=${result.exitCode} duration=${result.durationMs}ms`);
