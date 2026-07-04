@@ -1,7 +1,8 @@
 import { spawnSync } from "child_process";
 import * as path from "path";
 import { StepResult, Workflow } from "./types";
-import { renderTemplate } from "./template";
+import { renderTemplate, emptyContext, TemplateContext } from "./template";
+import { applySelect, parseCaptureFormat } from "./capture";
 
 export interface RunOptions {
   cwd?: string;
@@ -21,13 +22,14 @@ export function runWorkflow(
 ): RunOutcome {
   const baseCwd = options.cwd ?? process.cwd();
   const results: StepResult[] = [];
+  const ctx: TemplateContext = emptyContext(inputs);
   let success = true;
 
   for (const step of workflow.steps) {
     if (!success) {
       results.push({
         id: step.id,
-        command: step.run,
+        command: step.run ?? "",
         stdout: "",
         stderr: "",
         exitCode: null,
@@ -37,33 +39,65 @@ export function runWorkflow(
       continue;
     }
 
-    const command = renderTemplate(step.run, inputs);
-    options.onStepStart?.(step.id, command);
+    let result: StepResult;
+    let captureFailed = false;
 
-    const stepCwd = step.cwd ? path.resolve(baseCwd, step.cwd) : baseCwd;
-    const env = step.env ? { ...process.env, ...step.env } : process.env;
+    if (step.run) {
+      const command = renderTemplate(step.run, ctx, "shell");
+      options.onStepStart?.(step.id, command);
 
-    const start = Date.now();
-    const proc = spawnSync(command, {
-      shell: true,
-      cwd: stepCwd,
-      env,
-      encoding: "utf8",
-    });
-    const durationMs = Date.now() - start;
+      const stepCwd = step.cwd ? path.resolve(baseCwd, step.cwd) : baseCwd;
+      const env = step.env ? { ...process.env, ...step.env } : process.env;
 
-    const result: StepResult = {
-      id: step.id,
-      command,
-      stdout: proc.stdout ?? "",
-      stderr: proc.stderr ?? "",
-      exitCode: proc.status,
-      durationMs,
-    };
+      const start = Date.now();
+      const proc = spawnSync(command, {
+        shell: true,
+        cwd: stepCwd,
+        env,
+        encoding: "utf8",
+      });
+      const durationMs = Date.now() - start;
+
+      result = {
+        id: step.id,
+        command,
+        stdout: proc.stdout ?? "",
+        stderr: proc.stderr ?? "",
+        exitCode: proc.status,
+        durationMs,
+      };
+
+      if (step.capture) {
+        try {
+          const parsed = parseCaptureFormat(step.capture.format, result.stdout);
+          result.parsed = parsed;
+          ctx.captures[step.capture.as] = applySelect(parsed, step.capture.select);
+        } catch (err) {
+          result.stderr += (result.stderr ? "\n" : "") + `capture error: ${(err as Error).message}`;
+          captureFailed = true;
+        }
+      }
+
+      ctx.steps[step.id] = {
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        parsed: result.parsed,
+      };
+    } else {
+      result = { id: step.id, command: "", stdout: "", stderr: "", exitCode: 0, durationMs: 0 };
+    }
+
+    if (step.assign) {
+      for (const [varName, tmpl] of Object.entries(step.assign)) {
+        ctx.vars[varName] = renderTemplate(tmpl, ctx, "plain");
+      }
+    }
+
     results.push(result);
     options.onStepEnd?.(result);
 
-    const failed = proc.status !== 0;
+    const failed = (step.run !== undefined && result.exitCode !== 0) || captureFailed;
     if (failed && !step.continueOnError) {
       success = false;
     }

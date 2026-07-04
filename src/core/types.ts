@@ -4,12 +4,22 @@ export interface WorkflowInput {
   default?: string;
 }
 
+export type CaptureFormat = "text" | "json" | "lines";
+
+export interface CaptureSpec {
+  as: string;
+  format: CaptureFormat;
+  select?: Record<string, string>;
+}
+
 export interface WorkflowStep {
   id: string;
-  run: string;
+  run?: string;
   cwd?: string;
   env?: Record<string, string>;
   continueOnError?: boolean;
+  capture?: CaptureSpec;
+  assign?: Record<string, string>;
 }
 
 export interface WorkflowRequires {
@@ -33,4 +43,5 @@ export interface StepResult {
   exitCode: number | null;
   durationMs: number;
   skipped?: boolean;
+  parsed?: unknown;
 }

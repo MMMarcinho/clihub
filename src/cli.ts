@@ -4,6 +4,7 @@ import { initCommand } from "./commands/init";
 import { listCommand } from "./commands/list";
 import { showCommand } from "./commands/show";
 import { runCommand } from "./commands/run";
+import { doctorCommand } from "./commands/doctor";
 
 const program = new Command();
 
@@ -39,6 +40,13 @@ program
   }, [] as string[])
   .action((workflow: string, options: { input: string[] }) => {
     withErrorHandling(() => runCommand(workflow, options.input));
+  });
+
+program
+  .command("doctor <workflow>")
+  .description("check whether the environment satisfies a workflow's requirements")
+  .action((workflow: string) => {
+    withErrorHandling(() => doctorCommand(workflow));
   });
 
 function withErrorHandling(fn: () => void): void {
