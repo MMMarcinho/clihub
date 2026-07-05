@@ -5,6 +5,7 @@ import { listCommand } from "./commands/list";
 import { showCommand } from "./commands/show";
 import { runCommand } from "./commands/run";
 import { doctorCommand } from "./commands/doctor";
+import { explainCommand } from "./commands/explain";
 
 const program = new Command();
 
@@ -20,15 +21,17 @@ program
 program
   .command("list")
   .description("list available workflows")
-  .action(() => {
-    withErrorHandling(() => listCommand());
+  .option("--json", "output JSON")
+  .action((options: { json?: boolean }) => {
+    withErrorHandling(() => listCommand(options));
   });
 
 program
   .command("show <workflow>")
   .description("show a workflow's inputs and steps")
-  .action((workflow: string) => {
-    withErrorHandling(() => showCommand(workflow));
+  .option("--json", "output JSON")
+  .action((workflow: string, options: { json?: boolean }) => {
+    withErrorHandling(() => showCommand(workflow, options));
   });
 
 program
@@ -38,15 +41,26 @@ program
     prev.push(value);
     return prev;
   }, [] as string[])
-  .action((workflow: string, options: { input: string[] }) => {
-    withErrorHandling(() => runCommand(workflow, options.input));
+  .option("--json", "output JSON")
+  .option("--dry-run", "show planned commands and data dependencies without executing")
+  .action((workflow: string, options: { input: string[]; json?: boolean; dryRun?: boolean }) => {
+    withErrorHandling(() => runCommand(workflow, options.input, options));
   });
 
 program
   .command("doctor <workflow>")
   .description("check whether the environment satisfies a workflow's requirements")
-  .action((workflow: string) => {
-    withErrorHandling(() => doctorCommand(workflow));
+  .option("--json", "output JSON")
+  .action((workflow: string, options: { json?: boolean }) => {
+    withErrorHandling(() => doctorCommand(workflow, options));
+  });
+
+program
+  .command("explain <workflow>")
+  .description("explain what a workflow would do, without executing it")
+  .option("--json", "output JSON")
+  .action((workflow: string, options: { json?: boolean }) => {
+    withErrorHandling(() => explainCommand(workflow, options));
   });
 
 function withErrorHandling(fn: () => void): void {

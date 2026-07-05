@@ -26,11 +26,22 @@ export interface WorkflowRequires {
   tools?: string[];
 }
 
+export interface WorkflowPermissions {
+  network?: boolean;
+  filesystem?: {
+    read?: boolean;
+    write?: boolean;
+  };
+  credentials?: string[];
+  destructive?: boolean;
+}
+
 export interface Workflow {
   name: string;
   description: string;
   inputs: Record<string, WorkflowInput>;
   requires: WorkflowRequires;
+  permissions: WorkflowPermissions;
   steps: WorkflowStep[];
   file: string;
 }

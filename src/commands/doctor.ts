@@ -1,30 +1,43 @@
 import { checkTools } from "../core/tool-check";
 import { findWorkflow } from "../core/workflow";
 
-export function doctorCommand(name: string): void {
-  const wf = findWorkflow(name);
-  console.log(`Doctor report for "${wf.name}"`);
+export interface DoctorOptions {
+  json?: boolean;
+}
 
-  let ok = true;
+export function doctorCommand(name: string, options: DoctorOptions = {}): void {
+  const wf = findWorkflow(name);
 
   const tools = wf.requires.tools ?? [];
+  const toolChecks = checkTools(tools);
+  const ok = toolChecks.every((t) => t.found);
+
+  const requiredInputs = Object.entries(wf.inputs)
+    .filter(([, def]) => def.required)
+    .map(([inputName, def]) => ({ name: inputName, hasDefault: def.default !== undefined }));
+
+  if (options.json) {
+    console.log(JSON.stringify({ workflow: wf.name, ok, tools: toolChecks, requiredInputs }, null, 2));
+    if (!ok) process.exitCode = 1;
+    return;
+  }
+
+  console.log(`Doctor report for "${wf.name}"`);
+
   console.log(`\ntools:`);
-  if (tools.length === 0) {
+  if (toolChecks.length === 0) {
     console.log(`  (none required)`);
   } else {
-    for (const { tool, found } of checkTools(tools)) {
+    for (const { tool, found } of toolChecks) {
       console.log(`  [${found ? "OK" : "MISSING"}] ${tool}`);
-      if (!found) ok = false;
     }
   }
 
-  const requiredInputs = Object.entries(wf.inputs).filter(([, def]) => def.required);
   console.log(`\nrequired inputs:`);
   if (requiredInputs.length === 0) {
     console.log(`  (none)`);
   } else {
-    for (const [inputName, def] of requiredInputs) {
-      const hasDefault = def.default !== undefined;
+    for (const { name: inputName, hasDefault } of requiredInputs) {
       console.log(`  [${hasDefault ? "OK (has default)" : "NEEDS --input"}] ${inputName}`);
     }
   }
