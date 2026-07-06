@@ -22,15 +22,20 @@ clihub run <workflow>
 
 初版产品规格见 [SPEC.md](./SPEC.md)，分阶段落地计划见 [ROADMAP.md](./ROADMAP.md)。
 
-## 当前实现状态：Phase 0 + Phase 1
+## 当前实现状态：Phase 0 + Phase 1 + Phase 2（除用户级 hub）
 
-当前代码实现了 ROADMAP.md 中的 Phase 0 和 Phase 1：
+当前代码实现了：
 
 - 顺序执行 workflow 的最小闭环（模板渲染、必填输入校验、`requires.tools` 检查、`stdout`/`stderr`/`exitCode` 记录、失败即停）。
 - 显式数据流：`capture`（`text`/`json`/`lines` + `select` 字段提取）、`assign` 中间变量、`{{steps.*}}`/`{{captures.*}}`/`{{vars.*}}` 模板引用。
 - `clihub doctor <workflow>`：检查所需工具和必填输入。
+- `clihub explain <workflow>`：不执行，展示 inputs/requires/permissions、每个 step 的命令和 step 间数据依赖图。
+- `run --dry-run`：同样不执行，额外把已知的 `--input` 值代入展示。
+- `list`/`show`/`doctor`/`run`/`explain` 都支持 `--json`。
+- `permissions` 声明（`network`/`filesystem`/`credentials`/`destructive`）的解析与展示。
+- 实际执行 `run` 时，模板引用通过环境变量间接传递（而不是把值直接拼进 shell 命令字符串），即使某一步的输出包含引号、`;`、`$(...)`、反引号，也不会被当作额外的 shell 语法执行。
 
-尚未实现 `explain`、`--json` 输出、`permissions` 声明、用户级 hub（见 ROADMAP.md Phase 2）。
+尚未实现用户级 hub（`~/.clihub`，见 ROADMAP.md Phase 3）。
 
 ## 安装与构建
 
@@ -56,6 +61,19 @@ node dist/cli.js run <workflow> --input key=value
 
 # 运行前体检：检查工具和必填输入
 node dist/cli.js doctor <workflow>
+
+# 解释 workflow 会做什么，但不执行
+node dist/cli.js explain <workflow>
+
+# 演练：展示将要执行的命令和数据依赖，但不执行
+node dist/cli.js run <workflow> --dry-run
+
+# 以上命令都支持 --json（例如喂给 Agent 解析）
+node dist/cli.js list --json
+node dist/cli.js show <workflow> --json
+node dist/cli.js doctor <workflow> --json
+node dist/cli.js run <workflow> --json
+node dist/cli.js explain <workflow> --json
 ```
 
 workflow 文件示例（`.clihub/workflows/greet.yaml`）：
@@ -119,4 +137,17 @@ steps:
 
 ```bash
 node dist/cli.js run create-pr-summary
+```
+
+`permissions` 声明示例（目前只做解析和展示，不做运行时强制沙箱）：
+
+```yaml
+permissions:
+  network: true
+  filesystem:
+    read: true
+    write: false
+  credentials:
+    - github
+  destructive: false
 ```

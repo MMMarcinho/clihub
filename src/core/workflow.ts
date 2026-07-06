@@ -1,7 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
-import { CaptureFormat, CaptureSpec, Workflow, WorkflowInput, WorkflowStep } from "./types";
+import {
+  CaptureFormat,
+  CaptureSpec,
+  Workflow,
+  WorkflowInput,
+  WorkflowPermissions,
+  WorkflowStep,
+} from "./types";
 
 export const WORKFLOWS_DIR = path.join(".clihub", "workflows");
 
@@ -123,6 +130,33 @@ function parseSteps(raw: unknown, file: string): WorkflowStep[] {
   });
 }
 
+function parsePermissions(raw: unknown, file: string): WorkflowPermissions {
+  if (raw === undefined) return {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error(`workflow ${file}: "permissions" must be a map`);
+  }
+  const obj = raw as Record<string, unknown>;
+  const permissions: WorkflowPermissions = {};
+  if (typeof obj.network === "boolean") permissions.network = obj.network;
+  if (obj.filesystem !== undefined) {
+    if (typeof obj.filesystem !== "object" || obj.filesystem === null || Array.isArray(obj.filesystem)) {
+      throw new Error(`workflow ${file}: "permissions.filesystem" must be a map`);
+    }
+    const fsObj = obj.filesystem as Record<string, unknown>;
+    permissions.filesystem = {};
+    if (typeof fsObj.read === "boolean") permissions.filesystem.read = fsObj.read;
+    if (typeof fsObj.write === "boolean") permissions.filesystem.write = fsObj.write;
+  }
+  if (obj.credentials !== undefined) {
+    if (!Array.isArray(obj.credentials)) {
+      throw new Error(`workflow ${file}: "permissions.credentials" must be a list`);
+    }
+    permissions.credentials = obj.credentials.filter((c): c is string => typeof c === "string");
+  }
+  if (typeof obj.destructive === "boolean") permissions.destructive = obj.destructive;
+  return permissions;
+}
+
 export function parseWorkflow(source: string, file: string): Workflow {
   const raw = yaml.load(source);
   if (typeof raw !== "object" || raw === null) {
@@ -137,12 +171,14 @@ export function parseWorkflow(source: string, file: string): Workflow {
   const tools = Array.isArray(requiresRaw.tools)
     ? requiresRaw.tools.filter((t): t is string => typeof t === "string")
     : [];
+  const permissions = parsePermissions(doc.permissions, file);
 
   return {
     name,
     description,
     inputs,
     requires: { tools },
+    permissions,
     steps,
     file,
   };

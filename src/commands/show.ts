@@ -1,7 +1,17 @@
 import { findWorkflow } from "../core/workflow";
+import { permissionLines } from "./format";
 
-export function showCommand(name: string): void {
+export interface ShowOptions {
+  json?: boolean;
+}
+
+export function showCommand(name: string, options: ShowOptions = {}): void {
   const wf = findWorkflow(name);
+
+  if (options.json) {
+    console.log(JSON.stringify(wf, null, 2));
+    return;
+  }
 
   console.log(`name: ${wf.name}`);
   console.log(`description: ${wf.description}`);
@@ -12,16 +22,24 @@ export function showCommand(name: string): void {
   if (inputNames.length === 0) {
     console.log(`  (none)`);
   } else {
-    for (const name of inputNames) {
-      const def = wf.inputs[name];
+    for (const inputName of inputNames) {
+      const def = wf.inputs[inputName];
       const flags = [def.required ? "required" : "optional", def.default !== undefined ? `default=${def.default}` : null]
         .filter(Boolean)
         .join(", ");
-      console.log(`  ${name} (${flags})${def.description ? `: ${def.description}` : ""}`);
+      console.log(`  ${inputName} (${flags})${def.description ? `: ${def.description}` : ""}`);
     }
   }
 
   console.log(`\nrequires.tools: ${wf.requires.tools?.length ? wf.requires.tools.join(", ") : "(none)"}`);
+
+  const permLines = permissionLines(wf.permissions);
+  console.log(`\npermissions:`);
+  if (permLines.length === 0) {
+    console.log(`  (not declared)`);
+  } else {
+    for (const line of permLines) console.log(`  ${line}`);
+  }
 
   console.log(`\nsteps:`);
   for (const step of wf.steps) {

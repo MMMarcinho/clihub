@@ -1,7 +1,7 @@
 import { spawnSync } from "child_process";
 import * as path from "path";
 import { StepResult, Workflow } from "./types";
-import { renderTemplate, emptyContext, TemplateContext } from "./template";
+import { renderTemplate, renderShellCommand, emptyContext, TemplateContext } from "./template";
 import { applySelect, parseCaptureFormat } from "./capture";
 
 export interface RunOptions {
@@ -43,14 +43,21 @@ export function runWorkflow(
     let captureFailed = false;
 
     if (step.run) {
-      const command = renderTemplate(step.run, ctx, "shell");
-      options.onStepStart?.(step.id, command);
+      // Human-readable command for display/audit (StepResult.command, progress
+      // output): values fully resolved and shell-quoted so nothing is hidden.
+      const displayCommand = renderTemplate(step.run, ctx, "shell");
+      options.onStepStart?.(step.id, displayCommand);
+
+      // Actual command executed: references become "$VAR" env-var expansions
+      // instead of literal text, so previous-step output can never be
+      // reinterpreted as shell syntax (see renderShellCommand doc comment).
+      const { command: execCommand, env: refEnv } = renderShellCommand(step.run, ctx);
 
       const stepCwd = step.cwd ? path.resolve(baseCwd, step.cwd) : baseCwd;
-      const env = step.env ? { ...process.env, ...step.env } : process.env;
+      const env = { ...process.env, ...refEnv, ...(step.env ?? {}) };
 
       const start = Date.now();
-      const proc = spawnSync(command, {
+      const proc = spawnSync(execCommand, {
         shell: true,
         cwd: stepCwd,
         env,
@@ -60,7 +67,7 @@ export function runWorkflow(
 
       result = {
         id: step.id,
-        command,
+        command: displayCommand,
         stdout: proc.stdout ?? "",
         stderr: proc.stderr ?? "",
         exitCode: proc.status,

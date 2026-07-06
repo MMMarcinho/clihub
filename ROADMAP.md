@@ -40,23 +40,26 @@
 - `run` 模板渲染时，插值一律经过 shell 单引号转义（`shellQuote`），即使值来自上一步的 `capture`/`assign`，也不会被解释成额外的 shell 语法。`assign` 生成变量时不转义（生成的是纯文本变量），转义只发生在这段文本最终被插入某个 `run` 命令的那一刻。
 - `capture.format: json` 解析失败时，该 step 视为失败，工作流按"失败即停"规则终止，不会静默吞掉解析错误。
 
-## Phase 2：Agent 友好 + 安全模型
+## Phase 2（部分实现）：Agent 友好 + 安全模型
 
-**功能范围**：
+**已实现**：
 
-- `clihub explain <workflow>`：不执行，展示将要运行的命令和 step 间数据依赖。
+- `clihub explain <workflow>`：不执行，展示 workflow 的 inputs/requires/permissions、每个 step 的命令模板（未渲染 `{{steps.*}}`/`{{captures.*}}`/`{{vars.*}}`，因为那些值只有真正执行才知道）、以及 step 间的数据依赖图（通过扫描 `capture.as`/`assign` 的归属 step 反推依赖）。
 - `list` / `show` / `doctor` / `run` 支持 `--json` 输出。
-- `permissions` 声明（network/filesystem/credentials/destructive）的解析与展示。
-- `run` 支持 `--dry-run`。
-- 命令执行改为参数化（避免把 capture 出来的任意文本拼进 shell 字符串导致注入）。
-- 用户级 hub（`~/.clihub`），同名 workflow 项目级优先。
+- `run --dry-run`：复用 explain 的依赖图逻辑，额外把已解析的 `{{inputs.x}}` 代入展示（因为 `run` 场景下 inputs 已知），但同样不渲染 step 间数据引用。
+- `permissions` 声明（network/filesystem/credentials/destructive）的解析，并在 `show`/`explain` 中展示。当前只是声明和展示，不做运行时沙箱强制执行（与 SPEC 第一阶段范围一致）。
+- 命令执行改为参数化：`run` 步骤实际执行时，模板引用不再被拼接成字面 shell 文本，而是导出成环境变量、在命令里用 `"$VAR"` 引用。Shell 展开环境变量的内容时不会把其中的引号、`;`、`$(...)`、反引号重新解释成语法，从而消除了此前"单引号转义"方案在理论上仍然存在的边缘风险。人类可读的展示命令（`show`/`explain`/`run` 进度输出/`StepResult.command`）仍然保持完整可读，不受影响——"命令必须可检查、不能隐藏魔法"这条设计原则没有被参数化牺牲掉。
 
-**预期效果**：达成 SPEC 第 11 节列出的完整 MVP 范围，workflow 可以安全地被 Agent 发现、审查（explain/doctor）、并以结构化方式调用（--json）。
+**尚未实现，推到后续**：
+
+- 用户级 hub（`~/.clihub`）和同名 workflow 优先级解析。
+
+**预期效果**：workflow 可以安全地被 Agent 发现、审查（`explain`/`doctor`）、以结构化方式调用（`--json`），且 `run` 的实际执行路径不再把上一步任意输出当作 shell 语法解析。
 
 ## Phase 3：留给未来（本次不规划实现）
 
-远程/导入 hub、并行 step、更复杂的表达式语言、密钥管理、持久化 run history、retry/resume、图形界面。这些在 SPEC.md 中被显式列为"第一版可以暂缓"。
+用户级 hub、远程/导入 hub、并行 step、更复杂的表达式语言、密钥管理、持久化 run history、retry/resume、图形界面。这些在 SPEC.md 中被显式列为"第一版可以暂缓"，或是 Phase 2 里暂时搁置的部分。
 
 ---
 
-Phase 0、Phase 1 已实现（见下方状态标记）。
+Phase 0、Phase 1 已完整实现；Phase 2 除用户级 hub 外已实现。
