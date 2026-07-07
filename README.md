@@ -22,21 +22,6 @@ clihub run <workflow>
 
 初版产品规格见 [SPEC.md](./SPEC.md)，分阶段落地计划见 [ROADMAP.md](./ROADMAP.md)。
 
-## 当前实现状态：Phase 0 + Phase 1 + Phase 2（除用户级 hub）
-
-当前代码实现了：
-
-- 顺序执行 workflow 的最小闭环（模板渲染、必填输入校验、`requires.tools` 检查、`stdout`/`stderr`/`exitCode` 记录、失败即停）。
-- 显式数据流：`capture`（`text`/`json`/`lines` + `select` 字段提取）、`assign` 中间变量、`{{steps.*}}`/`{{captures.*}}`/`{{vars.*}}` 模板引用。
-- `clihub doctor <workflow>`：检查所需工具和必填输入。
-- `clihub explain <workflow>`：不执行，展示 inputs/requires/permissions、每个 step 的命令和 step 间数据依赖图。
-- `run --dry-run`：同样不执行，额外把已知的 `--input` 值代入展示。
-- `list`/`show`/`doctor`/`run`/`explain` 都支持 `--json`。
-- `permissions` 声明（`network`/`filesystem`/`credentials`/`destructive`）的解析与展示。
-- 实际执行 `run` 时，模板引用通过环境变量间接传递（而不是把值直接拼进 shell 命令字符串），即使某一步的输出包含引号、`;`、`$(...)`、反引号，也不会被当作额外的 shell 语法执行。
-
-尚未实现用户级 hub（`~/.clihub`，见 ROADMAP.md Phase 3）。
-
 ## 安装与构建
 
 ```bash
