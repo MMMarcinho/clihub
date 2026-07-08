@@ -1,9 +1,11 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as yaml from "js-yaml";
 import {
   CaptureFormat,
   CaptureSpec,
+  HubScope,
   Workflow,
   WorkflowInput,
   WorkflowPermissions,
@@ -16,8 +18,11 @@ export function projectHubDir(cwd: string = process.cwd()): string {
   return path.join(cwd, WORKFLOWS_DIR);
 }
 
-export function listWorkflowFiles(cwd: string = process.cwd()): string[] {
-  const dir = projectHubDir(cwd);
+export function userHubDir(): string {
+  return path.join(os.homedir(), ".clihub", "workflows");
+}
+
+function listYamlFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) {
     return [];
   }
@@ -157,7 +162,7 @@ function parsePermissions(raw: unknown, file: string): WorkflowPermissions {
   return permissions;
 }
 
-export function parseWorkflow(source: string, file: string): Workflow {
+export function parseWorkflow(source: string, file: string, hub: HubScope = "project"): Workflow {
   const raw = yaml.load(source);
   if (typeof raw !== "object" || raw === null) {
     throw new Error(`workflow ${file}: file must contain a YAML mapping`);
@@ -181,24 +186,39 @@ export function parseWorkflow(source: string, file: string): Workflow {
     permissions,
     steps,
     file,
+    hub,
   };
 }
 
-export function loadWorkflowFile(file: string): Workflow {
+export function loadWorkflowFile(file: string, hub: HubScope = "project"): Workflow {
   const source = fs.readFileSync(file, "utf8");
-  return parseWorkflow(source, file);
+  return parseWorkflow(source, file, hub);
 }
 
+/**
+ * Lists workflows from the project hub (`.clihub/workflows`) and the user
+ * hub (`~/.clihub/workflows`), per SPEC's resolution order. When both hubs
+ * define a workflow with the same name, the project-level one wins and the
+ * user-level one is dropped from the result.
+ */
 export function listWorkflows(cwd: string = process.cwd()): Workflow[] {
-  return listWorkflowFiles(cwd).map(loadWorkflowFile);
+  const projectWorkflows = listYamlFiles(projectHubDir(cwd)).map((file) => loadWorkflowFile(file, "project"));
+  const userWorkflows = listYamlFiles(userHubDir()).map((file) => loadWorkflowFile(file, "user"));
+
+  const projectNames = new Set(projectWorkflows.map((w) => w.name));
+  const merged = [...projectWorkflows, ...userWorkflows.filter((w) => !projectNames.has(w.name))];
+
+  return merged.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function findWorkflow(name: string, cwd: string = process.cwd()): Workflow {
-  const matches = listWorkflows(cwd).filter((w) => w.name === name);
-  if (matches.length === 0) {
-    throw new Error(`workflow "${name}" not found in ${projectHubDir(cwd)}`);
+  const match = listWorkflows(cwd).find((w) => w.name === name);
+  if (!match) {
+    throw new Error(
+      `workflow "${name}" not found in ${projectHubDir(cwd)} or ${userHubDir()}`
+    );
   }
-  return matches[0];
+  return match;
 }
 
 export function resolveInputs(

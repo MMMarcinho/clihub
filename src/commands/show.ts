@@ -15,6 +15,7 @@ export function showCommand(name: string, options: ShowOptions = {}): void {
 
   console.log(`name: ${wf.name}`);
   console.log(`description: ${wf.description}`);
+  console.log(`hub: ${wf.hub}`);
   console.log(`file: ${wf.file}`);
 
   const inputNames = Object.keys(wf.inputs);

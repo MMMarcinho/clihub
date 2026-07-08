@@ -16,6 +16,7 @@ export function explainCommand(name: string, options: ExplainOptions = {}): void
         {
           name: wf.name,
           description: wf.description,
+          hub: wf.hub,
           inputs: wf.inputs,
           requires: wf.requires,
           permissions: wf.permissions,
@@ -35,6 +36,7 @@ export function explainCommand(name: string, options: ExplainOptions = {}): void
   }
 
   console.log(`${wf.name}: ${wf.description}`);
+  console.log(`hub: ${wf.hub}`);
   console.log(`(explain does not execute anything)`);
 
   const inputNames = Object.keys(wf.inputs);

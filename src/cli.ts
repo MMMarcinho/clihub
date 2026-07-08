@@ -13,9 +13,10 @@ program.name("clihub").description("local-first CLI workflow hub").version("0.1.
 
 program
   .command("init")
-  .description("initialize a project-level .clihub/workflows directory")
-  .action(() => {
-    withErrorHandling(() => initCommand());
+  .description("initialize a .clihub/workflows directory (project-level by default)")
+  .option("--user", "initialize the user-level hub (~/.clihub/workflows) instead")
+  .action((options: { user?: boolean }) => {
+    withErrorHandling(() => initCommand(options));
   });
 
 program
