@@ -35,6 +35,9 @@ npm run build
 # 在项目根目录初始化 .clihub/workflows
 node dist/cli.js init
 
+# 初始化用户级 hub（~/.clihub/workflows），跨项目复用个人 workflow
+node dist/cli.js init --user
+
 # 列出可用 workflow
 node dist/cli.js list
 
@@ -136,3 +139,12 @@ permissions:
     - github
   destructive: false
 ```
+
+## 项目级 hub 与用户级 hub
+
+`clihub` 同时支持两类 workflow 来源：
+
+- 项目级：`.clihub/workflows`（提交到仓库，团队共享）。
+- 用户级：`~/.clihub/workflows`（跨项目复用个人 workflow，用 `clihub init --user` 创建）。
+
+`list`/`show`/`explain` 会在结果里标注每个 workflow 来自哪个 hub（`hub: "project" | "user"`）。如果两边有同名 workflow，项目级优先，用户级的同名版本不会出现在解析结果里。

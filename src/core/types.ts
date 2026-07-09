@@ -36,6 +36,8 @@ export interface WorkflowPermissions {
   destructive?: boolean;
 }
 
+export type HubScope = "project" | "user";
+
 export interface Workflow {
   name: string;
   description: string;
@@ -44,6 +46,7 @@ export interface Workflow {
   permissions: WorkflowPermissions;
   steps: WorkflowStep[];
   file: string;
+  hub: HubScope;
 }
 
 export interface StepResult {

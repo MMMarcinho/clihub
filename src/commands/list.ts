@@ -1,4 +1,4 @@
-import { listWorkflows, projectHubDir } from "../core/workflow";
+import { listWorkflows, projectHubDir, userHubDir } from "../core/workflow";
 
 export interface ListOptions {
   json?: boolean;
@@ -10,7 +10,7 @@ export function listCommand(options: ListOptions = {}): void {
   if (options.json) {
     console.log(
       JSON.stringify(
-        workflows.map((wf) => ({ name: wf.name, description: wf.description, file: wf.file })),
+        workflows.map((wf) => ({ name: wf.name, description: wf.description, hub: wf.hub, file: wf.file })),
         null,
         2
       )
@@ -19,10 +19,10 @@ export function listCommand(options: ListOptions = {}): void {
   }
 
   if (workflows.length === 0) {
-    console.log(`No workflows found in ${projectHubDir()}. Run "clihub init" first.`);
+    console.log(`No workflows found in ${projectHubDir()} or ${userHubDir()}. Run "clihub init" first.`);
     return;
   }
   for (const wf of workflows) {
-    console.log(`${wf.name}\t${wf.description}`);
+    console.log(`${wf.name}\t[${wf.hub}]\t${wf.description}`);
   }
 }

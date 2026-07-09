@@ -1,8 +1,12 @@
 import * as fs from "fs";
-import { projectHubDir } from "../core/workflow";
+import { projectHubDir, userHubDir } from "../core/workflow";
 
-export function initCommand(): void {
-  const dir = projectHubDir();
+export interface InitOptions {
+  user?: boolean;
+}
+
+export function initCommand(options: InitOptions = {}): void {
+  const dir = options.user ? userHubDir() : projectHubDir();
   if (fs.existsSync(dir)) {
     console.log(`Already initialized: ${dir}`);
     return;
