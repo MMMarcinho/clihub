@@ -59,3 +59,24 @@ export interface StepResult {
   skipped?: boolean;
   parsed?: unknown;
 }
+
+export interface RunRecord {
+  id: string;
+  workflow: string;
+  hub: HubScope;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  inputs: Record<string, string>;
+  success: boolean;
+  steps: StepResult[];
+}
+
+export interface RunSummary {
+  id: string;
+  workflow: string;
+  success: boolean;
+  startedAt: string;
+  durationMs: number;
+  file: string;
+}

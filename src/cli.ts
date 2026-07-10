@@ -6,6 +6,7 @@ import { showCommand } from "./commands/show";
 import { runCommand } from "./commands/run";
 import { doctorCommand } from "./commands/doctor";
 import { explainCommand } from "./commands/explain";
+import { runsCommand } from "./commands/runs";
 
 const program = new Command();
 
@@ -62,6 +63,14 @@ program
   .option("--json", "output JSON")
   .action((workflow: string, options: { json?: boolean }) => {
     withErrorHandling(() => explainCommand(workflow, options));
+  });
+
+program
+  .command("runs")
+  .description("list recorded runs (from .clihub/runs)")
+  .option("--json", "output JSON")
+  .action((options: { json?: boolean }) => {
+    withErrorHandling(() => runsCommand(options));
   });
 
 function withErrorHandling(fn: () => void): void {

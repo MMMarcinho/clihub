@@ -53,10 +53,18 @@
 
 **预期效果**：workflow 可以安全地被 Agent 发现、审查（`explain`/`doctor`）、以结构化方式调用（`--json`），`run` 的实际执行路径不再把上一步任意输出当作 shell 语法解析，且个人常用 workflow 可以放在 `~/.clihub` 里跨项目复用，不与项目级 workflow 冲突。
 
-## Phase 3：留给未来（本次不规划实现）
+## Phase 3（部分实现）：留给未来的能力
 
-远程/导入 hub、并行 step、更复杂的表达式语言、密钥管理、持久化 run history、retry/resume、图形界面。这些在 SPEC.md 中被显式列为"第一版可以暂缓"。
+SPEC.md 中被显式列为"第一版可以暂缓"的能力，按需逐个补：
+
+**已实现**：
+
+- 持久化 run history：SPEC 第 7 节把 `.clihub/runs/<run-id>.json` 预留为存储位置，MVP 阶段只打印 trace、不落盘。现在 `clihub run`（非 `--dry-run`）执行完成后会把完整 trace（workflow、hub、inputs、每个 step 的 `stdout`/`stderr`/`exitCode`/`durationMs`、整体 `success`）写入该路径；新增 `clihub runs [--json]` 列出历史记录（id、workflow、成功与否、开始时间、耗时），对应 SPEC 第 4 节 "Run" 概念里"一次 run 应该能回答"的那组问题。持久化失败（比如没有写权限）只打印警告，不影响 workflow 本身的执行结果和退出码。
+
+**尚未实现**：
+
+- 远程/导入 hub、并行 step、更复杂的表达式语言、密钥管理、retry/resume、图形界面。
 
 ---
 
-Phase 0、Phase 1、Phase 2 均已实现。
+Phase 0、Phase 1、Phase 2 均已实现；Phase 3 目前实现了持久化 run history。

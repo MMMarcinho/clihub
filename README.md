@@ -56,12 +56,16 @@ node dist/cli.js explain <workflow>
 # 演练：展示将要执行的命令和数据依赖，但不执行
 node dist/cli.js run <workflow> --dry-run
 
+# 列出历史执行记录
+node dist/cli.js runs
+
 # 以上命令都支持 --json（例如喂给 Agent 解析）
 node dist/cli.js list --json
 node dist/cli.js show <workflow> --json
 node dist/cli.js doctor <workflow> --json
 node dist/cli.js run <workflow> --json
 node dist/cli.js explain <workflow> --json
+node dist/cli.js runs --json
 ```
 
 workflow 文件示例（`.clihub/workflows/greet.yaml`）：
@@ -148,3 +152,7 @@ permissions:
 - 用户级：`~/.clihub/workflows`（跨项目复用个人 workflow，用 `clihub init --user` 创建）。
 
 `list`/`show`/`explain` 会在结果里标注每个 workflow 来自哪个 hub（`hub: "project" | "user"`）。如果两边有同名 workflow，项目级优先，用户级的同名版本不会出现在解析结果里。
+
+## Run history
+
+每次 `clihub run`（`--dry-run` 除外）执行完成后，会把完整的执行记录写入 `.clihub/runs/<run-id>.json`：workflow 名称、使用的 inputs、每个 step 的 `stdout`/`stderr`/`exitCode`/`durationMs`，以及整体是否成功。用 `clihub runs` 查看历史记录列表，或直接打开对应的 JSON 文件看完整细节。

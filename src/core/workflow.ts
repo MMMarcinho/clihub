@@ -13,6 +13,7 @@ import {
 } from "./types";
 
 export const WORKFLOWS_DIR = path.join(".clihub", "workflows");
+export const RUNS_DIR = path.join(".clihub", "runs");
 
 export function projectHubDir(cwd: string = process.cwd()): string {
   return path.join(cwd, WORKFLOWS_DIR);
@@ -20,6 +21,10 @@ export function projectHubDir(cwd: string = process.cwd()): string {
 
 export function userHubDir(): string {
   return path.join(os.homedir(), ".clihub", "workflows");
+}
+
+export function projectRunsDir(cwd: string = process.cwd()): string {
+  return path.join(cwd, RUNS_DIR);
 }
 
 function listYamlFiles(dir: string): string[] {
