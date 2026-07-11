@@ -1,6 +1,7 @@
 import { checkTools } from "../core/tool-check";
 import { runWorkflow } from "../core/executor";
 import { planWorkflow } from "../core/plan";
+import { generateRunId, saveRun } from "../core/run-history";
 import { findWorkflow, resolveInputs } from "../core/workflow";
 
 export interface RunCommandOptions {
@@ -88,6 +89,7 @@ export function runCommand(name: string, rawInputs: string[], options: RunComman
     console.log(`Running workflow "${wf.name}"`);
   }
 
+  const startedAt = new Date();
   const outcome = runWorkflow(
     wf,
     inputs,
@@ -108,9 +110,29 @@ export function runCommand(name: string, rawInputs: string[], options: RunComman
           },
         }
   );
+  const finishedAt = new Date();
+
+  let runFile: string | undefined;
+  try {
+    runFile = saveRun({
+      id: generateRunId(),
+      workflow: wf.name,
+      hub: wf.hub,
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      inputs,
+      success: outcome.success,
+      steps: outcome.results,
+    });
+  } catch (err) {
+    console.error(`Warning: failed to record run history: ${(err as Error).message}`);
+  }
 
   if (options.json) {
-    console.log(JSON.stringify({ name: wf.name, success: outcome.success, results: outcome.results }, null, 2));
+    console.log(
+      JSON.stringify({ name: wf.name, success: outcome.success, results: outcome.results, runFile }, null, 2)
+    );
     if (!outcome.success) process.exitCode = 1;
     return;
   }
@@ -119,6 +141,10 @@ export function runCommand(name: string, rawInputs: string[], options: RunComman
     if (result.skipped) {
       console.log(`\n[${result.id}] skipped (previous step failed)`);
     }
+  }
+
+  if (runFile) {
+    console.log(`\nRun recorded: ${runFile}`);
   }
 
   if (!outcome.success) {
