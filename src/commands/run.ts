@@ -39,6 +39,7 @@ function runDry(name: string, rawInputs: string[], options: RunCommandOptions): 
             capture: step.capture,
             assign: step.assign ? Object.keys(step.assign) : undefined,
             dependsOnSteps: step.dependsOnSteps,
+            parallelGroup: step.parallelGroup,
           })),
         },
         null,
@@ -50,7 +51,7 @@ function runDry(name: string, rawInputs: string[], options: RunCommandOptions): 
 
   console.log(`Dry run for "${wf.name}" (nothing will be executed)`);
   for (const step of plan) {
-    console.log(`\n[${step.id}]`);
+    console.log(`\n[${step.id}]${step.parallelGroup ? ` (parallel group: ${step.parallelGroup})` : ""}`);
     if (step.displayCommand) console.log(`  $ ${step.displayCommand}`);
     if (step.capture) console.log(`  capture -> ${step.capture.as} (${step.capture.format})`);
     if (step.assign) console.log(`  assign: ${Object.keys(step.assign).join(", ")}`);
@@ -60,7 +61,7 @@ function runDry(name: string, rawInputs: string[], options: RunCommandOptions): 
   }
 }
 
-export function runCommand(name: string, rawInputs: string[], options: RunCommandOptions = {}): void {
+export async function runCommand(name: string, rawInputs: string[], options: RunCommandOptions = {}): Promise<void> {
   if (options.dryRun) {
     runDry(name, rawInputs, options);
     return;
@@ -90,7 +91,7 @@ export function runCommand(name: string, rawInputs: string[], options: RunComman
   }
 
   const startedAt = new Date();
-  const outcome = runWorkflow(
+  const outcome = await runWorkflow(
     wf,
     inputs,
     options.json

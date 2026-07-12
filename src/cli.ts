@@ -45,8 +45,8 @@ program
   }, [] as string[])
   .option("--json", "output JSON")
   .option("--dry-run", "show planned commands and data dependencies without executing")
-  .action((workflow: string, options: { input: string[]; json?: boolean; dryRun?: boolean }) => {
-    withErrorHandling(() => runCommand(workflow, options.input, options));
+  .action(async (workflow: string, options: { input: string[]; json?: boolean; dryRun?: boolean }) => {
+    await withErrorHandling(() => runCommand(workflow, options.input, options));
   });
 
 program
@@ -73,13 +73,13 @@ program
     withErrorHandling(() => runsCommand(options));
   });
 
-function withErrorHandling(fn: () => void): void {
+async function withErrorHandling(fn: () => void | Promise<void>): Promise<void> {
   try {
-    fn();
+    await fn();
   } catch (err) {
     console.error(`Error: ${(err as Error).message}`);
     process.exitCode = 1;
   }
 }
 
-program.parse(process.argv);
+program.parseAsync(process.argv);

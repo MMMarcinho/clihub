@@ -20,6 +20,13 @@ export interface WorkflowStep {
   continueOnError?: boolean;
   capture?: CaptureSpec;
   assign?: Record<string, string>;
+  /**
+   * A group of steps that run concurrently instead of sequentially. Only
+   * one level deep — a parallel child cannot itself declare `parallel`. A
+   * step with `parallel` set has no `run`/`capture`/`assign` of its own;
+   * it's purely a grouping marker.
+   */
+  parallel?: WorkflowStep[];
 }
 
 export interface WorkflowRequires {

@@ -131,6 +131,32 @@ steps:
 node dist/cli.js run create-pr-summary
 ```
 
+带并行执行的 workflow 示例（一个 step 用 `parallel:` 声明一组并发执行的子 step，之后的 step 可以引用任意一个子 step 产生的 capture）：
+
+```yaml
+name: parallel-fetch
+description: Fetch two things concurrently, then combine.
+
+steps:
+  - id: fetch
+    parallel:
+      - id: fetch-a
+        run: curl -s https://example.com/a
+        capture: a
+      - id: fetch-b
+        run: curl -s https://example.com/b
+        capture: b
+
+  - id: combine
+    run: echo {{captures.a}}-{{captures.b}}
+```
+
+```bash
+node dist/cli.js run parallel-fetch
+```
+
+注意：`parallel` 只支持一层嵌套（子 step 不能再有自己的 `parallel`），组内子 step 之间不能互相引用彼此的结果——它们没有确定的执行顺序，互相引用会在运行时报错而不是读到不确定的值。
+
 `permissions` 声明示例（目前只做解析和展示，不做运行时强制沙箱）：
 
 ```yaml

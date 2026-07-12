@@ -60,11 +60,12 @@ SPEC.md 中被显式列为"第一版可以暂缓"的能力，按需逐个补：
 **已实现**：
 
 - 持久化 run history：SPEC 第 7 节把 `.clihub/runs/<run-id>.json` 预留为存储位置，MVP 阶段只打印 trace、不落盘。现在 `clihub run`（非 `--dry-run`）执行完成后会把完整 trace（workflow、hub、inputs、每个 step 的 `stdout`/`stderr`/`exitCode`/`durationMs`、整体 `success`）写入该路径；新增 `clihub runs [--json]` 列出历史记录（id、workflow、成功与否、开始时间、耗时），对应 SPEC 第 4 节 "Run" 概念里"一次 run 应该能回答"的那组问题。持久化失败（比如没有写权限）只打印警告，不影响 workflow 本身的执行结果和退出码。
+- 并行 step：一个 step 可以用 `parallel:` 声明一组并发执行的子 step，替代原来只能顺序执行的模型。只支持一层嵌套（子 step 不能再嵌套 `parallel`），且带 `parallel` 的 step 本身不能再有 `run`/`capture`/`assign`（纯分组标记）。执行层从 `spawnSync` 改成基于 `spawn` 的 Promise 封装，`runWorkflow` 变成 `async`，组内子 step 用 `Promise.all` 并发跑，共享同一份模板上下文（`captures`/`vars`/`steps`）；只要组内任意一个子 step 失败（且没设 `continueOnError`），整组视为失败，后续 step 按"失败即停"规则跳过。组内子 step 之间不保证顺序，因此不允许互相引用彼此的 `capture`/`assign` 结果——如果引用了，会在渲染阶段直接抛"未知模板引用"错误，而不是读到一个不确定时序的值。`show`/`explain`/`run --dry-run` 都会标注每个 step 属于哪个并行组（`parallelGroup` 字段）。
 
 **尚未实现**：
 
-- 远程/导入 hub、并行 step、更复杂的表达式语言、密钥管理、retry/resume、图形界面。
+- 远程/导入 hub、更复杂的表达式语言、密钥管理、retry/resume、图形界面。
 
 ---
 
-Phase 0、Phase 1、Phase 2 均已实现；Phase 3 目前实现了持久化 run history。
+Phase 0、Phase 1、Phase 2 均已实现；Phase 3 目前实现了持久化 run history 和并行 step。
