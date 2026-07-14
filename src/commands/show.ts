@@ -1,5 +1,19 @@
+import { WorkflowStep } from "../core/types";
 import { findWorkflow } from "../core/workflow";
 import { permissionLines } from "./format";
+
+function printStep(step: WorkflowStep, indent: string): void {
+  if (step.parallel) {
+    console.log(`${indent}- ${step.id}: [parallel group, ${step.parallel.length} steps]`);
+    for (const child of step.parallel) printStep(child, indent + "  ");
+    return;
+  }
+  const parts: string[] = [];
+  if (step.run) parts.push(step.run);
+  if (step.capture) parts.push(`[capture -> ${step.capture.as} (${step.capture.format})]`);
+  if (step.assign) parts.push(`[assign: ${Object.keys(step.assign).join(", ")}]`);
+  console.log(`${indent}- ${step.id}: ${parts.join(" ")}`);
+}
 
 export interface ShowOptions {
   json?: boolean;
@@ -44,10 +58,6 @@ export function showCommand(name: string, options: ShowOptions = {}): void {
 
   console.log(`\nsteps:`);
   for (const step of wf.steps) {
-    const parts: string[] = [];
-    if (step.run) parts.push(step.run);
-    if (step.capture) parts.push(`[capture -> ${step.capture.as} (${step.capture.format})]`);
-    if (step.assign) parts.push(`[assign: ${Object.keys(step.assign).join(", ")}]`);
-    console.log(`  - ${step.id}: ${parts.join(" ")}`);
+    printStep(step, "  ");
   }
 }

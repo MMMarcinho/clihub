@@ -64,45 +64,96 @@ function parseInputs(raw: unknown, file: string): Record<string, WorkflowInput> 
 
 const CAPTURE_FORMATS: CaptureFormat[] = ["text", "json", "lines"];
 
-function parseCapture(raw: unknown, file: string, index: number): CaptureSpec | undefined {
+function parseCapture(raw: unknown, file: string, pathLabel: string): CaptureSpec | undefined {
   if (raw === undefined) return undefined;
   if (typeof raw === "string") {
     return { as: raw, format: "text" };
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    throw new Error(`workflow ${file}: steps[${index}].capture must be a string or a map`);
+    throw new Error(`workflow ${file}: ${pathLabel}.capture must be a string or a map`);
   }
   const obj = raw as Record<string, unknown>;
-  const as = assertString(obj.as, `steps[${index}].capture.as`, file);
+  const as = assertString(obj.as, `${pathLabel}.capture.as`, file);
   const format = obj.format ?? "text";
   if (!CAPTURE_FORMATS.includes(format as CaptureFormat)) {
-    throw new Error(
-      `workflow ${file}: steps[${index}].capture.format must be one of ${CAPTURE_FORMATS.join(", ")}`
-    );
+    throw new Error(`workflow ${file}: ${pathLabel}.capture.format must be one of ${CAPTURE_FORMATS.join(", ")}`);
   }
   let select: Record<string, string> | undefined;
   if (obj.select !== undefined) {
     if (typeof obj.select !== "object" || obj.select === null || Array.isArray(obj.select)) {
-      throw new Error(`workflow ${file}: steps[${index}].capture.select must be a map`);
+      throw new Error(`workflow ${file}: ${pathLabel}.capture.select must be a map`);
     }
     select = {};
     for (const [key, value] of Object.entries(obj.select as Record<string, unknown>)) {
-      select[key] = assertString(value, `steps[${index}].capture.select.${key}`, file);
+      select[key] = assertString(value, `${pathLabel}.capture.select.${key}`, file);
     }
   }
   return { as, format: format as CaptureFormat, select };
 }
 
-function parseAssign(raw: unknown, file: string, index: number): Record<string, string> | undefined {
+function parseAssign(raw: unknown, file: string, pathLabel: string): Record<string, string> | undefined {
   if (raw === undefined) return undefined;
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    throw new Error(`workflow ${file}: steps[${index}].assign must be a map`);
+    throw new Error(`workflow ${file}: ${pathLabel}.assign must be a map`);
   }
   const assign: Record<string, string> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    assign[key] = assertString(value, `steps[${index}].assign.${key}`, file);
+    assign[key] = assertString(value, `${pathLabel}.assign.${key}`, file);
   }
   return assign;
+}
+
+function parseStep(
+  entry: unknown,
+  file: string,
+  pathLabel: string,
+  seenIds: Set<string>,
+  allowParallel: boolean
+): WorkflowStep {
+  const step = (entry ?? {}) as Record<string, unknown>;
+  const id = assertString(step.id, `${pathLabel}.id`, file);
+  if (seenIds.has(id)) {
+    throw new Error(`workflow ${file}: duplicate step id "${id}"`);
+  }
+  seenIds.add(id);
+
+  if (step.parallel !== undefined) {
+    if (!allowParallel) {
+      throw new Error(`workflow ${file}: ${pathLabel} ("${id}") cannot nest "parallel" inside a parallel group`);
+    }
+    if (step.run !== undefined || step.capture !== undefined || step.assign !== undefined) {
+      throw new Error(
+        `workflow ${file}: ${pathLabel} ("${id}") cannot combine "parallel" with "run"/"capture"/"assign"`
+      );
+    }
+    if (!Array.isArray(step.parallel) || step.parallel.length === 0) {
+      throw new Error(`workflow ${file}: ${pathLabel}.parallel must be a non-empty list`);
+    }
+    const children = step.parallel.map((child, childIndex) =>
+      parseStep(child, file, `${pathLabel}.parallel[${childIndex}]`, seenIds, false)
+    );
+    return { id, parallel: children };
+  }
+
+  const run = typeof step.run === "string" && step.run.trim() !== "" ? step.run : undefined;
+  const capture = parseCapture(step.capture, file, pathLabel);
+  const assign = parseAssign(step.assign, file, pathLabel);
+  if (!run && !assign) {
+    throw new Error(`workflow ${file}: ${pathLabel} ("${id}") must have "run" or "assign"`);
+  }
+
+  const result: WorkflowStep = { id };
+  if (run) result.run = run;
+  if (capture) result.capture = capture;
+  if (assign) result.assign = assign;
+  if (typeof step.cwd === "string") result.cwd = step.cwd;
+  if (step.env && typeof step.env === "object") {
+    result.env = step.env as Record<string, string>;
+  }
+  if (typeof step.continueOnError === "boolean") {
+    result.continueOnError = step.continueOnError;
+  }
+  return result;
 }
 
 function parseSteps(raw: unknown, file: string): WorkflowStep[] {
@@ -110,34 +161,7 @@ function parseSteps(raw: unknown, file: string): WorkflowStep[] {
     throw new Error(`workflow ${file}: "steps" must be a non-empty list`);
   }
   const seenIds = new Set<string>();
-  return raw.map((entry, index) => {
-    const step = (entry ?? {}) as Record<string, unknown>;
-    const id = assertString(step.id, `steps[${index}].id`, file);
-    if (seenIds.has(id)) {
-      throw new Error(`workflow ${file}: duplicate step id "${id}"`);
-    }
-    seenIds.add(id);
-
-    const run = typeof step.run === "string" && step.run.trim() !== "" ? step.run : undefined;
-    const capture = parseCapture(step.capture, file, index);
-    const assign = parseAssign(step.assign, file, index);
-    if (!run && !assign) {
-      throw new Error(`workflow ${file}: steps[${index}] ("${id}") must have "run" or "assign"`);
-    }
-
-    const result: WorkflowStep = { id };
-    if (run) result.run = run;
-    if (capture) result.capture = capture;
-    if (assign) result.assign = assign;
-    if (typeof step.cwd === "string") result.cwd = step.cwd;
-    if (step.env && typeof step.env === "object") {
-      result.env = step.env as Record<string, string>;
-    }
-    if (typeof step.continueOnError === "boolean") {
-      result.continueOnError = step.continueOnError;
-    }
-    return result;
-  });
+  return raw.map((entry, index) => parseStep(entry, file, `steps[${index}]`, seenIds, true));
 }
 
 function parsePermissions(raw: unknown, file: string): WorkflowPermissions {

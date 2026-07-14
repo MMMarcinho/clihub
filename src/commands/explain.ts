@@ -26,6 +26,7 @@ export function explainCommand(name: string, options: ExplainOptions = {}): void
             capture: step.capture,
             assign: step.assign ? Object.keys(step.assign) : undefined,
             dependsOnSteps: step.dependsOnSteps,
+            parallelGroup: step.parallelGroup,
           })),
         },
         null,
@@ -62,7 +63,7 @@ export function explainCommand(name: string, options: ExplainOptions = {}): void
 
   console.log(`\nsteps:`);
   for (const step of plan) {
-    console.log(`\n  [${step.id}]`);
+    console.log(`\n  [${step.id}]${step.parallelGroup ? ` (parallel group: ${step.parallelGroup})` : ""}`);
     if (step.run) console.log(`    run: ${step.run}`);
     if (step.capture) console.log(`    capture -> ${step.capture.as} (${step.capture.format})`);
     if (step.assign) console.log(`    assign: ${Object.keys(step.assign).join(", ")}`);
